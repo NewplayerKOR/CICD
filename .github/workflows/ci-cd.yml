@@ -1,0 +1,112 @@
+name: CI/CD Pipeline
+
+# 워크플로우가 언제 실행될지 정의
+on:
+  push:
+    branches: [ main, master ]  # main 또는 master 브랜치에 push될 때
+  pull_request:
+    branches: [ main, master ]  # PR이 생성될 때
+  workflow_dispatch:  # 수동 실행 가능
+
+# 환경 변수 정의
+env:
+  DOCKER_IMAGE_NAME: newplayerkor/nginx-cicd
+  DOCKER_IMAGE_TAG: ${{ github.sha }}
+
+# 작업 정의
+jobs:
+  # 1단계: 빌드 및 테스트
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    # 코드 체크아웃
+    - name: 📥 코드 체크아웃
+      uses: actions/checkout@v4
+    
+    # Docker 빌드 환경 설정
+    - name: 🐳 Docker Buildx 설정
+      uses: docker/setup-buildx-action@v3
+    
+    # Docker 이미지 빌드 (테스트용)
+    - name: 🔨 Docker 이미지 빌드
+      run: |
+        echo "Docker 이미지 빌드 시작..."
+        docker build -t ${{ env.DOCKER_IMAGE_NAME }}:test .
+        echo "빌드 완료!"
+    
+    # 빌드된 이미지 테스트
+    - name: 🧪 이미지 테스트
+      run: |
+        echo "컨테이너 실행 테스트..."
+        # 컨테이너 실행 (백그라운드)
+        docker run -d --name test-container -p 8080:80 ${{ env.DOCKER_IMAGE_NAME }}:test
+        
+        # 컨테이너가 시작될 때까지 대기
+        sleep 10
+        
+        # 헬스체크
+        echo "헬스체크 수행..."
+        curl -f http://localhost:8080/health || exit 1
+        
+        # HTTP 응답 확인
+        echo "HTTP 응답 확인..."
+        curl -s http://localhost:8080 | grep "CI/CD" || exit 1
+        
+        # 컨테이너 중지 및 제거
+        docker stop test-container
+        docker rm test-container
+        
+        echo "모든 테스트 통과! ✅"
+
+  # 2단계: Docker Hub에 배포 (main 브랜치에만)
+  deploy:
+    needs: build-and-test  # build-and-test 작업이 성공해야 실행
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    
+    steps:
+    # 코드 체크아웃
+    - name: 📥 코드 체크아웃
+      uses: actions/checkout@v4
+    
+    # Docker Buildx 설정
+    - name: 🐳 Docker Buildx 설정
+      uses: docker/setup-buildx-action@v3
+    
+    # Docker Hub 로그인
+    - name: 🔐 Docker Hub 로그인
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_HUB_USERNAME }}
+        password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+    
+    # 메타데이터 추출 (태그, 라벨 등)
+    - name: 🏷️ 메타데이터 추출
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.DOCKER_IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+    
+    # Docker 이미지 빌드 및 푸시
+    - name: 🚀 Docker 이미지 빌드 및 푸시
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    
+    # 배포 완료 알림
+    - name: 🎉 배포 완료 알림
+      run: |
+        echo "🎉 배포가 성공적으로 완료되었습니다!"
+        echo "Docker Hub: https://hub.docker.com/r/${{ env.DOCKER_IMAGE_NAME }}"
+        echo "태그: ${{ steps.meta.outputs.tags }}"

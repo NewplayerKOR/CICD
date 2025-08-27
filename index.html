@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CI/CD 테스트</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 50px;
+            color: white;
+            text-align: center;
+        }
+        .container {
+            background: rgba(255,255,255,0.1);
+            padding: 30px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎉 CI/CD 파이프라인 성공! 🎉</h1>
+        <p>GitHub Actions로 자동 배포된 Nginx 서버입니다.</p>
+        <p>버전: <strong>v1.0</strong></p>
+        <p>배포 시간: <span id="datetime"></span></p>
+    </div>
+    
+    <script>
+        document.getElementById('datetime').textContent = new Date().toLocaleString('ko-KR');
+    </script>
+</body>
+</html>
