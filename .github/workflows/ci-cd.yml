@@ -78,8 +78,8 @@ jobs:
     - name: 🔐 Docker Hub 로그인
       uses: docker/login-action@v3
       with:
-        username: ${{ secrets.DOCKER_HUB_USERNAME }}
-        password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
     
     # 메타데이터 추출 (태그, 라벨 등)
     - name: 🏷️ 메타데이터 추출
